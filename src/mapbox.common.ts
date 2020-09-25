@@ -572,7 +572,9 @@ export interface MapboxApi {
 
   addLayer( style, nativeMapView?: any ): Promise<any>;
 
-  removeLayer( id: string, nativeMapView?: any ): Promise<any>;
+  removeLayer(id: string, nativeMapView?: any): Promise<any>;
+
+  getLayer( id: string, nativeMapView?: any ): Promise<any>;
 
   addLinePoint( id: string, point, nativeMapView?: any ): Promise<any>;
 
@@ -627,6 +629,8 @@ export interface MapboxApi {
   addLayer(options: AddLayerOptions): Promise<any>;
 
   removeLayer(id: string, nativeMap?: any): Promise<any>;
+
+  getLayer(id: string, nativeMap?: any): Promise<any>;
 
   // addExtrusion(options: AddExtrusionOptions): Promise<any>;
 
@@ -760,7 +764,9 @@ export interface MapboxViewApi {
 
   addLayer( style ): Promise<any>;
 
-  removeLayer( id: string ): Promise<any>;
+  removeLayer(id: string): Promise<any>;
+
+  getLayer( id: string ): Promise<any>;
 
   addLinePoint( id: string, point ): Promise<any>;
 
@@ -1006,6 +1012,12 @@ export abstract class MapboxViewCommonBase extends ContentView implements Mapbox
 
   removeLayer( id: string ): Promise<any> {
     return this.mapbox.removeLayer( id, this.getNativeMapView());
+  }
+
+  // -----------------------------------------------------------------
+
+  getLayer( id: string ): Promise<any> {
+    return this.mapbox.getLayer( id, this.getNativeMapView());
   }
 
   // -----------------------------------------------------------------

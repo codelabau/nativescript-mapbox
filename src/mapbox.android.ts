@@ -4,11 +4,25 @@
 * @todo FIXME: The gcFix() implementation currently assumes only one map visible at a time.
 */
 
-import * as utils from "@nativescript/core/utils/utils";
-import * as application from "@nativescript/core/application";
-import * as fs from "@nativescript/core/file-system";
-import { Color } from "@nativescript/core";
-import * as http from "@nativescript/core/http";
+import {
+  Application,
+  AndroidApplication,
+  AndroidActivityEventData,
+  AndroidActivityBundleEventData,
+  AndroidActivityResultEventData,
+  AndroidActivityBackPressedEventData,
+  Color,
+  Http,
+  Utils,
+  File,
+  knownFolders,
+} from '@nativescript/core';
+
+// import * as utils from "@nativescript/core/utils/utils";
+// import * as application from "@nativescript/core/application";
+// import * as fs from "@nativescript/core/file-system";
+// import { Color } from "@nativescript/core";
+// import * as http from "@nativescript/core/http";
 
 import {
   hasLocationPermissions,
@@ -253,7 +267,7 @@ export class MapboxView extends MapboxViewBase {
       })
     );
 
-    const iconFactory = com.mapbox.mapboxsdk.annotations.IconFactory.getInstance(application.android.context);
+    const iconFactory = com.mapbox.mapboxsdk.annotations.IconFactory.getInstance(Application.android.context);
 
     // if any markers need to be downloaded from the web they need to be available synchronously, so fetch them first before looping
 
@@ -270,8 +284,8 @@ export class MapboxView extends MapboxViewBase {
           // for markers from url see UrlMarker in https://github.com/mapbox/mapbox-gl-native/issues/5370
           if (marker.icon.startsWith("res://")) {
             let resourceName = marker.icon.substring(6);
-            let res = utils.ad.getApplicationContext().getResources();
-            let identifier = res.getIdentifier(resourceName, "drawable", utils.ad.getApplication().getPackageName());
+            let res = Utils.ad.getApplicationContext().getResources();
+            let identifier = res.getIdentifier(resourceName, "drawable", Utils.ad.getApplication().getPackageName());
             if (identifier === 0) {
               console.log(`No icon found for this device density for icon ' ${marker.icon}'. Falling back to the default icon.`);
             } else {
@@ -583,7 +597,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   private onDidFinishLoadingMapListener;
   private onMapReadyCallback;
   private onDidFinishLoadingStyleListener;
-  private onAnnotationClickListener;
+  private onLineAnnotationClickListener;
+  private onSymbolAnnotationClickListener;
   private onMapClickListener;
   private onMapLongClickListener;
   private onMoveListener;
@@ -622,13 +637,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     this.eventCallbacks[ 'click' ] = [];
 
-    this._activity = application.android.foregroundActivity;
+    this._activity = Application.android.foregroundActivity;
 
     // When we receive events from Android we need to inform the API.
     //
     // start
 
-    application.android.on( application.AndroidApplication.activityStartedEvent, ( args: application.AndroidActivityEventData ) => {
+    Application.on( AndroidApplication.activityStartedEvent, ( args: AndroidActivityEventData ) => {
 
       console.log( "Mapbox::constructor: activityStartedEvent Event: " + args.eventName + ", Activity: " + args.activity);
 
@@ -643,7 +658,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     // pause
 
-    application.android.on( application.AndroidApplication.activityPausedEvent, ( args: application.AndroidActivityEventData ) => {
+    Application.on( AndroidApplication.activityPausedEvent, ( args: AndroidActivityEventData ) => {
 
       console.log( "Mapbox::constructor:: activityPausedEvent Event: " + args.eventName + ", Activity: " + args.activity);
 
@@ -658,7 +673,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     // resume
 
-    application.android.on( application.AndroidApplication.activityResumedEvent, ( args: application.AndroidActivityEventData ) => {
+    Application.on( AndroidApplication.activityResumedEvent, ( args: AndroidActivityEventData ) => {
 
       console.log( "Mapbox::constructor: activityResumedEvent Event: " + args.eventName + ", Activity: " + args.activity);
 
@@ -673,7 +688,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     // stop
 
-    application.android.on( application.AndroidApplication.activityStoppedEvent, ( args: application.AndroidActivityEventData ) => {
+    Application.on( AndroidApplication.activityStoppedEvent, ( args: AndroidActivityEventData ) => {
 
       console.log( "Mapbox::constructor: activityStoppedEvent Event: " + args.eventName + ", Activity: " + args.activity);
 
@@ -688,7 +703,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     // destroy
 
-    application.android.on( application.AndroidApplication.activityDestroyedEvent, ( args: application.AndroidActivityEventData ) => {
+    Application.on( AndroidApplication.activityDestroyedEvent, ( args: AndroidActivityEventData ) => {
 
       console.log( "Mapbox::constructor: activityDestroyedEvent Event: " + args.eventName + ", Activity: " + args.activity);
 
@@ -716,7 +731,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     // savestate
 
-    application.android.on( application.AndroidApplication.saveActivityStateEvent, ( args: application.AndroidActivityBundleEventData ) => {
+    Application.on( AndroidApplication.saveActivityStateEvent, ( args: AndroidActivityBundleEventData ) => {
 
       console.log( "Mapbox::constructor: saveActivityStateEvent Event: " + args.eventName + ", Activity: " + args.activity + ", Bundle: " + args.bundle);
 
@@ -729,12 +744,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
     });
 
-    application.android.on( application.AndroidApplication.activityResultEvent, ( args: application.AndroidActivityResultEventData ) => {
+    Application.on( AndroidApplication.activityResultEvent, ( args: AndroidActivityResultEventData ) => {
       console.log( "Mapbox::constructor: activityResultEvent Event: " + args.eventName + ", Activity: " + args.activity +
         ", requestCode: " + args.requestCode + ", resultCode: " + args.resultCode + ", Intent: " + args.intent);
     });
 
-    application.android.on( application.AndroidApplication.activityBackPressedEvent, ( args: application.AndroidActivityBackPressedEventData ) => {
+    Application.on( AndroidApplication.activityBackPressedEvent, ( args: AndroidActivityBackPressedEventData ) => {
       console.log( "Mapbox::constructor: activityBackPressedEvent Event: " + args.eventName + ", Activity: " + args.activity);
       // Set args.cancel = true to cancel back navigation and do something custom.
     });
@@ -848,7 +863,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
           this._accessToken = settings.accessToken;
 
-          let context = application.android.context;
+          let context = Application.android.context;
 
           if ( settings.context ) {
             context = settings.context;
@@ -981,12 +996,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
             console.log( "Mapbox::show(): adding map to passed in container" );
 
-            // application.android.currentContext has been removed.
+            // Application.android.currentContext has been removed.
 
-            context = application.android.foregroundActivity;
+            context = Application.android.foregroundActivity;
 
             if ( ! context ) {
-              context = application.android.startActivity;
+              context = Application.android.startActivity;
             }
 
             const mapViewLayout = new android.widget.FrameLayout( context );
@@ -1093,13 +1108,14 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
       //
       // This is here to prevent a crash. The user code should disable/re-enable the
       // location marker.
-
+      /*
       if ( this._locationComponent ) {
 
         console.log( "Mapbox::destroy(): Location marker not disabled before destroy() called." );
 
         await this.hideUserLocationMarker();
       }
+      */
 
       if ( this._mapboxViewInstance ) {
 
@@ -1109,9 +1125,9 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           viewGroup.removeView( this._mapboxViewInstance );
         }
 
-	this._mapboxViewInstance.onPause();
-	this._mapboxViewInstance.onStop();
-	this._mapboxViewInstance.destroyDrawingCache();
+        this._mapboxViewInstance.onPause();
+        this._mapboxViewInstance.onStop();
+        this._mapboxViewInstance.destroyDrawingCache();
 
         // let the API know that we're programmatically destroying the map.
 
@@ -1153,8 +1169,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
       this._mapboxViewInstance.removeOnDidFinishLoadingStyleListener( this.onDidFinishLoadingStyleListener );
     }
 
-    if (  this.onAnnotationClickListener ) {
-      this.lineManager.removeClickListener( this.onAnnotationClickListener );
+    if (  this.onLineAnnotationClickListener ) {
+      this.lineManager.removeClickListener( this.onLineAnnotationClickListener );
+    }
+
+    if (  this.onSymbolAnnotationClickListener ) {
+      this.symbolManager.removeClickListener( this.onSymbolAnnotationClickListener );
     }
 
     if ( this.onDidFailLoadingMapListener ) {
@@ -1741,7 +1761,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
             this.gcFix( 'lineManager', this.lineManager );
 
-            this.onAnnotationClickListener = new com.mapbox.mapboxsdk.plugins.annotation.OnAnnotationClickListener({
+            this.onLineAnnotationClickListener = new com.mapbox.mapboxsdk.plugins.annotation.OnLineClickListener({
               onAnnotationClick: line => {
                 console.log( "Mapbox:setMapStyle(): click on line:", line );
 
@@ -1751,9 +1771,48 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
               }
             });
 
-            this.lineManager.addClickListener( this.onAnnotationClickListener );
+            this.lineManager.addClickListener( this.onLineAnnotationClickListener );
 
-            this.gcFix( 'com.mapbox.mapboxsdk.plugins.annotation.OnAnnotationClickListener', this.onAnnotationClickListener );
+            this.gcFix( 'com.mapbox.mapboxsdk.plugins.annotation.OnLineAnnotationClickListener', this.onLineAnnotationClickListener );
+
+            // Symbol Manager
+
+            this.symbolManager = new com.mapbox.mapboxsdk.plugins.annotation.SymbolManager( this._mapboxViewInstance, this._mapboxMapInstance, this._mapboxMapInstance.getStyle() );
+
+            this.symbolManager.setIconAllowOverlap(new java.lang.Boolean(true));
+            this.symbolManager.setIconIgnorePlacement(new java.lang.Boolean(true));
+
+            this.onSymbolAnnotationClickListener = new com.mapbox.mapboxsdk.plugins.annotation.OnSymbolClickListener({
+              onAnnotationClick: symbol => {
+                console.log( "Mapbox:setMapStyle(): click on symbol:", symbol );
+
+                // this.handleLineClickEvent( symbol );
+
+                return true;
+              }
+            });
+
+            this.symbolManager.addClickListener(this.onSymbolAnnotationClickListener);
+
+            // Add symbol at specified lat/lng
+            let resourcename = 'marker';
+            let res = Utils.ad.getApplicationContext().getResources();
+            let identifier = res.getIdentifier(resourcename, 'drawable', Utils.ad.getApplication().getPackageName());
+            this._mapboxMapInstance.getStyle().addImage(
+              resourcename,
+              new android.graphics.BitmapFactory.decodeResource(res, identifier)
+            );
+
+            const symbol = this.symbolManager.create(new com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions()
+            .withLatLng(new com.mapbox.mapboxsdk.geometry.LatLng(-33.865143, 151.209900))
+            .withIconImage(resourcename)
+            // .withIconSize(new java.lang.Float(3))
+            .withTextField('TESTING SYMBOL')
+              // .withDraggable(new java.lang.Boolean(true))
+            );
+            console.log(symbol);
+
+            this.gcFix( 'symbolManager', this.symbolManager );
 
             resolve( style );
 
@@ -1872,7 +1931,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
       })
     );
 
-    const iconFactory = com.mapbox.mapboxsdk.annotations.IconFactory.getInstance(application.android.context);
+    const iconFactory = com.mapbox.mapboxsdk.annotations.IconFactory.getInstance(Application.android.context);
 
     // if any markers need to be downloaded from the web they need to be available synchronously, so fetch them first before looping
 
@@ -1889,8 +1948,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           // for markers from url see UrlMarker in https://github.com/mapbox/mapbox-gl-native/issues/5370
           if (marker.icon.startsWith("res://")) {
             let resourcename = marker.icon.substring(6);
-            let res = utils.ad.getApplicationContext().getResources();
-            let identifier = res.getIdentifier(resourcename, "drawable", utils.ad.getApplication().getPackageName());
+            let res = Utils.ad.getApplicationContext().getResources();
+            let identifier = res.getIdentifier(resourcename, "drawable", Utils.ad.getApplication().getPackageName());
             if (identifier === 0) {
               console.log(`No icon found for this device density for icon ' ${marker.icon}'. Falling back to the default icon.`);
             } else {
@@ -1905,9 +1964,9 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           }
 
         } else if (marker.iconPath) {
-          let iconFullPath = fs.knownFolders.currentApp().path + "/" + marker.iconPath;
+          let iconFullPath = knownFolders.currentApp().path + "/" + marker.iconPath;
           // if the file doesn't exist the app will crash, so checking it
-          if (fs.File.exists(iconFullPath)) {
+          if (File.exists(iconFullPath)) {
             // could set width, height, retina, see https://github.com/Telerik-Verified-Plugins/Mapbox/pull/42/files?diff=unified&short_path=1c65267, but that's what the marker.icon param is for..
             markerOptions.setIcon(iconFactory.fromPath(iconFullPath));
           } else {
@@ -2736,7 +2795,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             .include(new com.mapbox.mapboxsdk.geometry.LatLng(options.bounds.south, options.bounds.west))
             .build();
 
-        const retinaFactor = utils.layout.getDisplayDensity();
+        const retinaFactor = Utils.layout.getDisplayDensity();
 
         const offlineRegionDefinition = new com.mapbox.mapboxsdk.offline.OfflineTilePyramidRegionDefinition(
             styleURL,
@@ -2755,7 +2814,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         }
         if (!this._accessToken) {
           this._accessToken = options.accessToken;
-          com.mapbox.mapboxsdk.Mapbox.getInstance( application.android.context, this._accessToken );
+          com.mapbox.mapboxsdk.Mapbox.getInstance( Application.android.context, this._accessToken );
         }
 
         this._getOfflineManager().createOfflineRegion(offlineRegionDefinition, encodedMetadata, new com.mapbox.mapboxsdk.offline.OfflineManager.CreateOfflineRegionCallback({
@@ -2824,7 +2883,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         }
         if (!this._accessToken) {
           this._accessToken = options.accessToken;
-          com.mapbox.mapboxsdk.Mapbox.getInstance(application.android.context, this._accessToken);
+          com.mapbox.mapboxsdk.Mapbox.getInstance(Application.android.context, this._accessToken);
         }
 
         this._getOfflineManager().listOfflineRegions(new com.mapbox.mapboxsdk.offline.OfflineManager.ListOfflineRegionsCallback({
@@ -2919,7 +2978,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   _getOfflineManager() {
 
     if ( ! this._offlineManager ) {
-      this._offlineManager = com.mapbox.mapboxsdk.offline.OfflineManager.getInstance( application.android.context );
+      this._offlineManager = com.mapbox.mapboxsdk.offline.OfflineManager.getInstance( Application.android.context );
     }
 
     return this._offlineManager;
@@ -3174,6 +3233,31 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     }); // end of Promise()
 
   } // end of removeLayer()
+
+  // -------------------------------------------------------------------------------------
+
+  /**
+  * get layer by ID
+  *
+  * Gets a layer given a layer id
+  *
+  * @param {string} id
+  */
+
+  public getLayer(id: string, nativeMap?): Promise<LatLng> {
+    return new Promise((resolve, reject) => {
+      try {
+        const layer = this._mapboxMapInstance.getStyle().getLayer(id);
+
+        console.log( "Mapbox:getLayer(): after getting layer" );
+
+        resolve(layer);
+      } catch (ex) {
+        console.log("Error in mapbox.getLayer: " + ex);
+        reject(ex);
+      }
+    });
+  }
 
   // -------------------------------------------------------------------------------------
 
@@ -4031,7 +4115,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     let hasPermission = android.os.Build.VERSION.SDK_INT < 23; // Android M. (6.0)
 
     if (!hasPermission) {
-      hasPermission = com.mapbox.android.core.permissions.PermissionsManager.areLocationPermissionsGranted( application.android.context );
+      hasPermission = com.mapbox.android.core.permissions.PermissionsManager.areLocationPermissionsGranted( Application.android.context );
     }
 
     return hasPermission;
@@ -4082,13 +4166,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           return;
         }
 
-        if (!com.mapbox.android.core.permissions.PermissionsManager.areLocationPermissionsGranted(application.android.context)) {
+        if (!com.mapbox.android.core.permissions.PermissionsManager.areLocationPermissionsGranted(Application.android.context)) {
           console.log("Mapbox::showUserLocationMarker(): location permissions are not granted.");
           reject("Location permissions not granted.");
           return;
         }
 
-        const componentOptionsBuilder = com.mapbox.mapboxsdk.location.LocationComponentOptions.builder(application.android.context);
+        const componentOptionsBuilder = com.mapbox.mapboxsdk.location.LocationComponentOptions.builder(Application.android.context);
 
         if (options.accuracyAlpha >= 0 && options.accuracyAlpha <= 1) {
           componentOptionsBuilder.accuracyAlpha(new java.lang.Float(options.accuracyAlpha));
@@ -4119,7 +4203,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         this._locationComponent = this._mapboxMapInstance.getLocationComponent();
         console.log("Mapbox::showUserLocationMarker(): after getLocationComponent");
 
-        const activationOptionsBuilder = com.mapbox.mapboxsdk.location.LocationComponentActivationOptions.builder(application.android.context, this._mapboxMapInstance.getStyle());
+        const activationOptionsBuilder = com.mapbox.mapboxsdk.location.LocationComponentActivationOptions.builder(Application.android.context, this._mapboxMapInstance.getStyle());
         console.log("Mapbox::showUserLocationMarker(): after activationOptionsBuilder");
         activationOptionsBuilder.locationComponentOptions(componentOptions);
 
@@ -4148,8 +4232,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         if (options.clickListener) {
           this.onLocationClickListener = new com.mapbox.mapboxsdk.location.OnLocationClickListener({
-            onLocationComponentClick: (component) => {
-              options.clickListener(component);
+            onLocationComponentClick: (): void => {
+              options.clickListener();
             }
           });
           this._locationComponent.addOnLocationClickListener(this.onLocationClickListener);
@@ -4324,7 +4408,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         return;
       }
       // ..or not to cache
-      http.getImage(marker.icon).then(
+      Http.getImage(marker.icon).then(
         (output) => {
           marker.iconDownloaded = output.android;
           this._markerIconDownloadCache[marker.icon] = marker.iconDownloaded;

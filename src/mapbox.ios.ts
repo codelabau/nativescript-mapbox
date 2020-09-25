@@ -328,7 +328,7 @@ export class MapboxView extends MapboxViewBase {
         // this delegate class is defined later in this file and is where, in Obj-C land,
         // callbacks are delivered and handled.
 
-        this.nativeMapView.delegate = this.delegate = MGLMapViewDelegateImpl.new().initWithCallback( () => {
+        this.nativeMapView.delegate = this.delegate = new MGLMapViewDelegateImpl().initWithCallback( () => {
 
           console.log( "MapboxView:initMap(): MLMapViewDeleteImpl onMapReady callback" );
 
@@ -2352,6 +2352,46 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     }); // end of Promise()
 
   } // end of removeLayer()
+
+  // -------------------------------------------------------------------------------------
+
+  /**
+  * get layer by ID
+  *
+  * Gets a layer given a layer id
+  *
+  * @param {string} id
+  */
+
+  public getLayer( id: string, nativeMapViewInstance ) {
+
+    return new Promise((resolve, reject) => {
+      try {
+
+        const theMap: MGLMapView = nativeMapViewInstance || this._mapboxViewInstance;
+
+        console.log( "Mapbox::getLayer(): attempting to get layer '" + id + "'" );
+
+        let layer = theMap.style.layerWithIdentifier( id );
+
+        console.log( "Mapbox:getLayer(): got layer object: ", layer );
+
+        if ( ! layer ) {
+          throw new Error( "Layer '" + id + "' not found when attempting to get it." );
+        }
+
+        console.log( "Mapbox:getLayer(): after removing layer " + id );
+
+        resolve(layer);
+
+      } catch (ex) {
+        console.log( "Mapbox:getLayer() Error : " + ex );
+        reject(ex);
+      }
+
+    }); // end of Promise()
+
+  } // end of getLayer()
 
   // -------------------------------------------------------------------------------------
 
