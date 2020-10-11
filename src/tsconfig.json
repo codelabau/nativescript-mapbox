@@ -2,13 +2,13 @@
   "compilerOptions": {
     "target": "es2017",
     "module": "esnext",
+    "moduleResolution": "node",
     "declaration": true,
     "removeComments": true,
     "noLib": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "lib": [
-      "es6",
       "es2017",
       "dom"
     ],
@@ -21,9 +21,7 @@
     "noImplicitAny": false,
     "noImplicitReturns": true,
     "noImplicitUseStrict": false,
-    "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
-    "removeComments": false
+    "noFallthroughCasesInSwitch": true
   },
   "exclude": [
     "node_modules",
