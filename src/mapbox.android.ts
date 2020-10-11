@@ -1795,6 +1795,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             this.symbolManager.addClickListener(this.onSymbolAnnotationClickListener);
 
             // Add symbol at specified lat/lng
+            /* TODO: replace marker with symbol
             let resourcename = 'marker';
             let res = Utils.ad.getApplicationContext().getResources();
             let identifier = res.getIdentifier(resourcename, 'drawable', Utils.ad.getApplication().getPackageName());
@@ -1811,6 +1812,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
               // .withDraggable(new java.lang.Boolean(true))
             );
             console.log(symbol);
+            */
 
             this.gcFix( 'symbolManager', this.symbolManager );
 
