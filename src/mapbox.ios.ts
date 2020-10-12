@@ -2077,6 +2077,10 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         }
 
         switch (type) {
+          case 'image':
+            reject("Not implemented for iOS:  " + type);
+            break;
+
           case "vector":
             source = MGLVectorTileSource.alloc().initWithIdentifierConfigurationURL(id, NSURL.URLWithString(url));
           break;
@@ -2297,6 +2301,10 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
       case 'circle':
         retval = this.addCircleLayer( style, nativeMapView );
+      break;
+
+      case 'raster':
+        retval = this.addRasterLayer(style, nativeMapView);
       break;
 
       default:
@@ -2770,7 +2778,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         let opacity = 1;
 
         if ( style.paint && style.paint[ 'circle-opacity' ] ) {
-          opacity = style.paint[ 'circe-opacity' ];
+          opacity = style.paint[ 'circle-opacity' ];
         }
 
         layer.circleOpacity = NSExpression.expressionForConstantValue( opacity );
@@ -2846,6 +2854,51 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     }); // end of Promise()
 
   } // end of addCircleLayer()
+
+  private addRasterLayer( style, nativeMapViewInstance? ): Promise<any> {
+
+    return new Promise((resolve, reject) => {
+
+      try {
+
+        const theMap: MGLMapView = nativeMapViewInstance || this._mapboxViewInstance;
+
+        if ( style.type != 'raster' ) {
+          reject( "Non circle style passed to addRasterLayer()" );
+        }
+
+        if ( typeof style.source != 'undefined' ) {
+          reject( "Missing source." );
+        }
+
+        let sourceId = style.source;
+
+        console.log( "Mapbox:addCircleLayer(): after adding source" );
+
+        const layer = MGLRasterStyleLayer.alloc().initWithIdentifierSource( style.id, theMap.style.sourceWithIdentifier( sourceId ) );
+
+        let opacity = 1;
+
+        if ( style.paint && style.paint[ 'raster-opacity' ] ) {
+          opacity = style.paint[ 'raster-opacity' ];
+        }
+
+        layer.rasterOpacity = NSExpression.expressionForConstantValue( opacity );
+
+        console.log( "Mapbox:addRasterLayer(): after opacity" );
+
+        theMap.style.addLayer(layer);
+
+        resolve();
+
+      } catch (ex) {
+        console.log( "Mapbox:addRasterLayer() Error : " + ex);
+        reject(ex);
+      }
+
+    }); // end of Promise()
+
+  } // end of addRasterLayer()
 
   // ---------------------------------------------------------------------
 
