@@ -283,6 +283,7 @@ export interface AddSourceOptions {
   url: string;
   type: string;
   data?: any;
+  coordinates?: any;
 }
 
 // ------------------------------------------------------------

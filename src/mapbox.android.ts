@@ -3025,6 +3025,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   */
 
   addSource( id: string, options: AddSourceOptions, nativeMap?): Promise<any> {
+    console.log('addSource: ' + id);
+    console.log(options);
     return new Promise((resolve, reject) => {
       try {
         const { url, type } = options;
@@ -3042,6 +3044,29 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         }
 
         switch (type) {
+          case 'image':
+            console.log("Mapbox:addSource(): before addSource with image");
+            let image;
+
+            if (url.startsWith('res://')) {
+              const resourcename = url.substring(6);
+              const res = Utils.ad.getApplicationContext().getResources();
+              image = res.getIdentifier(resourcename, "drawable", Utils.ad.getApplication().getPackageName());
+            } else {
+              const iconFullPath = knownFolders.currentApp().path + "/" + url;
+              image = android.graphics.BitmapFactory.decodeFile(iconFullPath);
+            }
+
+            const quad = new com.mapbox.mapboxsdk.geometry.LatLngQuad(
+              new com.mapbox.mapboxsdk.geometry.LatLng(options.coordinates[0][0], options.coordinates[0][1]),
+              new com.mapbox.mapboxsdk.geometry.LatLng(options.coordinates[1][0], options.coordinates[1][1]),
+              new com.mapbox.mapboxsdk.geometry.LatLng(options.coordinates[2][0], options.coordinates[2][1]),
+              new com.mapbox.mapboxsdk.geometry.LatLng(options.coordinates[3][0], options.coordinates[3][1]));
+
+            source = new com.mapbox.mapboxsdk.style.sources.ImageSource(id, quad, image);
+
+            this.gcFix( 'com.mapbox.mapboxsdk.style.sources.ImageSource', source );
+            break;
 
           case "vector":
             console.log( "Mapbox:addSource(): before addSource with vector" );
@@ -3192,6 +3217,10 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
       case 'circle':
         retval = this.addCircleLayer( style, nativeMapView );
+      break;
+
+      case 'raster':
+        retval = this.addRasterLayer(style, nativeMapView);
       break;
 
       default:
@@ -3826,6 +3855,57 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     });
 
   } // end of addCircleLayer()
+
+  private addRasterLayer( style, nativeMapViewInstance? ): Promise<any> {
+
+    return new Promise((resolve, reject) => {
+      try {
+
+        if ( style.type != 'raster' ) {
+          reject( "Non raster style passed to addRasterLayer()" );
+        }
+
+        const raster = new com.mapbox.mapboxsdk.style.layers.RasterLayer( style.id, style['source-layer'] );
+
+        console.log( "Mapbox:addRasterLayer(): after RasterLayer" );
+
+        const rasterProperties = [];
+
+        // opacity
+
+        if ( style.paint[ 'raster-opacity' ] ) {
+          rasterProperties.push( com.mapbox.mapboxsdk.style.layers.PropertyFactory.rasterOpacity( new java.lang.Float( style.paint[ 'raster-opacity' ] ) ) );
+        }
+
+        // TODO
+        // rasterBrightnessMax
+        // rasterBrightnessMin
+        // rasterContrast
+        // rasterFadeDuration
+        // rasterHueRotate
+        // rasterResampling
+        // rasterSaturation
+
+        raster.setProperties( rasterProperties );
+
+        if (style.afterId) {
+          this._mapboxMapInstance.getStyle().addLayerAbove(raster, style.afterId);
+        } else if (style.beforeId) {
+          this._mapboxMapInstance.getStyle().addLayerBelow(raster, style.beforeId);
+        } else {
+          this._mapboxMapInstance.getStyle().addLayer(raster);
+        }
+
+        console.log( "Mapbox:addRasterLayer(): after addLayer" );
+
+        resolve();
+      } catch (ex) {
+        console.log("Error in mapbox.addRasterLayer: " + ex);
+        reject(ex);
+      }
+    });
+
+  } // end of addRasterLayer()
 
   // ----------------------------------------
 
