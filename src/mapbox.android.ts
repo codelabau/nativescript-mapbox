@@ -18,12 +18,6 @@ import {
   knownFolders,
 } from '@nativescript/core';
 
-// import * as utils from "@nativescript/core/utils/utils";
-// import * as application from "@nativescript/core/application";
-// import * as fs from "@nativescript/core/file-system";
-// import { Color } from "@nativescript/core";
-// import * as http from "@nativescript/core/http";
-
 import {
   hasLocationPermissions,
   requestLocationPermissions,
@@ -38,7 +32,6 @@ import {
   AddPolylineOptions,
   AddSourceOptions,
   AnimateCameraOptions,
-  DeleteOfflineRegionOptions,
   DownloadOfflineRegionOptions,
   Feature,
   LatLng,
@@ -68,8 +61,6 @@ import { GeoUtils } from './geo.utils';
 export { MapStyle };
 
 declare const android, com, java, org: any;
-
-const ACCESS_FINE_LOCATION_PERMISSION_REQUEST_CODE = 111;
 
 export namespace BundleKludge {
   export let bundle = { test: 'test' };
@@ -2806,8 +2797,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             options.maxZoom,
             retinaFactor);
 
-        const info = '{name:"' + options.name + '"}';
-        const infoStr = new java.lang.String(info);
+        // const info = '{name:"' + options.name + '"}';
+        const info = {
+          name: options.name,
+          ...options.metadata
+        };
+        const infoStr = new java.lang.String(JSON.stringify(info));
         const encodedMetadata = infoStr.getBytes();
 
         if (!this._accessToken && !options.accessToken) {
@@ -2852,7 +2847,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
                 }
 
                 if (status.isComplete()) {
-                  resolve();
+                  resolve(status);
                 } else if (status.isRequiredResourceCountPrecise()) {
                 }
               },
@@ -2896,22 +2891,27 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             const regions = [];
             if (offlineRegions !== null) {
               for (let i = 0; i < offlineRegions.length; i++) {
-                let offlineRegion = offlineRegions[i];
-                let name = this._getRegionName(offlineRegion);
-                let offlineRegionDefinition = offlineRegion.getDefinition();
-                let bounds = offlineRegionDefinition.getBounds();
+                const offlineRegion = offlineRegions[i];
+                const name = this._getRegionName(offlineRegion);
+                const definition = offlineRegion.getDefinition();
+                const bounds = definition.getBounds();
+                const metadata = this._getRegionMetadata(offlineRegion);
 
                 regions.push({
+                  id: offlineRegion.getID(),
                   name: name,
-                  style: offlineRegionDefinition.getStyleURL(),
-                  minZoom: offlineRegionDefinition.getMinZoom(),
-                  maxZoom: offlineRegionDefinition.getMaxZoom(),
                   bounds: {
                     north: bounds.getLatNorth(),
                     east: bounds.getLonEast(),
                     south: bounds.getLatSouth(),
                     west: bounds.getLonWest()
-                  }
+                  },
+                  minZoom: definition.getMinZoom(),
+                  maxZoom: definition.getMaxZoom(),
+                  style: definition.getStyleURL(),
+                  metadata: metadata,
+                  pixelRatio: definition.getPixelRatio(),
+                  type: definition.getType(),
                 });
               }
             }
@@ -2928,11 +2928,11 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
   // ---------------------------------------------------------------------------------
 
-  deleteOfflineRegion(options: DeleteOfflineRegionOptions): Promise<any> {
+  deleteOfflineRegion(id: number): Promise<any> {
     return new Promise((resolve, reject) => {
       try {
-        if (!options || !options.name) {
-          reject("Pass in the 'name' param");
+        if (!id) {
+          reject("Pass in the 'id' param");
           return;
         }
 
@@ -2941,24 +2941,21 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             reject(error);
           },
           onList: (offlineRegions) => {
-            const regions = [];
             let found = false;
             if (offlineRegions !== null) {
               for (let i = 0; i < offlineRegions.length; i++) {
-                let offlineRegion = offlineRegions[i];
-                let name = this._getRegionName(offlineRegion);
-                if (name === options.name) {
+                const offlineRegion = offlineRegions[i];
+                const regionId = offlineRegion.getID();
+                if (id === regionId) {
                   found = true;
                   offlineRegion.delete(new com.mapbox.mapboxsdk.offline.OfflineRegion.OfflineRegionDeleteCallback({
                     onError: (error: string) => {
-                      reject(error);
+                      return reject(error);
                     },
                     onDelete: () => {
-                      resolve();
-                      // don't return, see note below
+                      return resolve();
                     }
                   }));
-                  // don't break the loop as there may be multiple packs with the same name
                 }
               }
             }
@@ -3025,8 +3022,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   */
 
   addSource( id: string, options: AddSourceOptions, nativeMap?): Promise<any> {
-    console.log('addSource: ' + id);
-    console.log(options);
     return new Promise((resolve, reject) => {
       try {
         const { url, type } = options;
@@ -3378,7 +3373,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         let sourceId = null;
 
-        if ( typeof style.source != 'string' ) {
+        if ( typeof style.source !== 'string' ) {
 
           sourceId = style.id + '_source';
 
@@ -4210,6 +4205,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     const jsonStr = new java.lang.String(metadata, "UTF-8");
     const jsonObj = new org.json.JSONObject(jsonStr);
     return jsonObj.getString("name");
+  }
+
+  _getRegionMetadata( offlineRegion ) {
+    const metadata = offlineRegion.getMetadata();
+    const jsonStr = new java.lang.String(metadata, "UTF-8");
+    const jsonObj = new org.json.JSONObject(jsonStr);
+    return JSON.parse(jsonObj.toString());
   }
 
   // --------------------------------------------------------------

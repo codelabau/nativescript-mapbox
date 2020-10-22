@@ -1,8 +1,13 @@
-import * as fs from "@nativescript/core/file-system";
-import * as imgSrc from "@nativescript/core/image-source";
-import * as utils from "@nativescript/core/utils/utils";
-import * as http from "@nativescript/core/http";
-import { Color } from "@nativescript/core/color";
+import {
+  Color,
+  File,
+  Http,
+  ImageSource,
+  knownFolders,
+} from '@nativescript/core';
+import {
+  iOSNativeHelper
+} from '@nativescript/core/utils';
 
 import {
   AddExtrusionOptions,
@@ -12,7 +17,6 @@ import {
   AddPolylineOptions,
   AddSourceOptions,
   AnimateCameraOptions,
-  DeleteOfflineRegionOptions,
   DownloadOfflineRegionOptions,
   Feature,
   LatLng,
@@ -79,7 +83,7 @@ const _getMapStyle = (input: any): NSURL => {
   if (/^mapbox:\/\/styles/.test(input) || /^http:\/\//.test(input) || /^https:\/\//.test(input)) {
     return NSURL.URLWithString(input);
   } else if (/^~\//.test(input)) {
-    const assetPath = 'file://' + fs.knownFolders.currentApp().path + '/';
+    const assetPath = 'file://' + knownFolders.currentApp().path + '/';
     input = input.replace(/^~\//, assetPath);
     return NSURL.URLWithString(input);
   } else if (input === MapStyle.LIGHT || input === MapStyle.LIGHT.toString()) {
@@ -409,7 +413,7 @@ export class MapboxView extends MapboxViewBase {
 *
 * @link https://docs.mapbox.com/ios/maps/examples/user-location-annotation/
 */
-
+@NativeClass()
 export class CustomUserLocationAnnotationView extends MGLUserLocationAnnotationView implements MGLUserLocationAnnotationView {
 
   public size: number;
@@ -904,7 +908,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         );
 
         _markers = [];
-        _addMarkers( settings.markers );
+        _addMarkers( settings.markers, this._mapboxViewInstance );
 
         // wrapping in a little timeout since the map area tends to flash black a bit initially
 
@@ -1439,7 +1443,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           const properties = [];
 
           if (feature.attributes && feature.attributes.count > 0) {
-            const keys = utils.iOSNativeHelper.collections.nsArrayToJSArray(
+            const keys = iOSNativeHelper.collections.nsArrayToJSArray(
               feature.attributes.allKeys);
 
             for (let key of keys) {
@@ -1771,7 +1775,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         theMap['mapOnMoveBeginHandler'] = MapPanHandlerImpl.initWithOwnerAndListenerForMap(new WeakRef(this), listener, theMap);
 
         // tell the panHandler that we're only interested in the first pan per pan gesture
-
         theMap[ 'mapOnMoveBeginHandler' ].setOnMoveBegin();
 
         // there's already a pan recognizer, so find it and attach a target action
@@ -1992,11 +1995,11 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     });
   }
 
-  deleteOfflineRegion(options: DeleteOfflineRegionOptions): Promise<any> {
+  deleteOfflineRegion(id: number): Promise<any> {
     return new Promise((resolve, reject) => {
       try {
-        if (!options || !options.name) {
-          reject("Pass in the 'name' param");
+        if (!id) {
+          reject("Pass in the 'id' param");
           return;
         }
 
@@ -2005,8 +2008,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         for (let i = 0; i < packs.count; i++) {
           let pack = packs.objectAtIndex(i);
           let userInfo = NSKeyedUnarchiver.unarchiveObjectWithData(pack.context);
-          let name = userInfo.objectForKey("name");
-          if (name === options.name) {
+          let name = userInfo.objectForKey("id");
+          if (name === id) {
             found = true;
             MGLOfflineStorage.sharedOfflineStorage.removePackWithCompletionHandler(pack, (error: NSError) => {
               if (error) {
@@ -2071,6 +2074,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           return;
         }
 
+        // has a source with this id already been defined? If so, then it is an error (because attempting
+        // to add another source with the same id will crash the app.
         if (theMap.style.sourceWithIdentifier(id)) {
           reject("Source exists: " + id);
           return;
@@ -2082,22 +2087,14 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             break;
 
           case "vector":
+            console.log('adding vector source')
             source = MGLVectorTileSource.alloc().initWithIdentifierConfigurationURL(id, NSURL.URLWithString(url));
           break;
 
           case 'geojson':
-
-            // has a source with this id already been defined? If so, then it is an error (because attempting
-            // to add another source with the same id will crash the app.
-
-            if ( theMap.style.sourceWithIdentifier( id )) {
-              reject( "Remove the layer with this id first with 'removeLayer': " + id );
-              return;
-            }
-
             // under iOS we handle lines and circles differently
 
-            if ( options.data.geometry.type == 'LineString' ) {
+            if ( options.data.geometry.type === 'LineString' ) {
 
               // after hours and hours of trial and error, I finally stumbled upon how to set things
               // up so that MGLPolylineFeature.polylineWithCoordinatesCount works.
@@ -2144,7 +2141,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
                 source: source
               });
 
-            } else if ( options.data.geometry.type == 'Point' ) {
+            } else if ( options.data.geometry.type === 'Point' ) {
 
               // FIXME: should be able to just call addSource here for type geoJson
 
@@ -2483,7 +2480,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         const theMap: MGLMapView = nativeMapViewInstance || this._mapboxViewInstance;
 
-        if ( style.type != 'line' ) {
+        if ( style.type !== 'line' ) {
           reject( "Non line style passed to addLineLayer()" );
         }
 
@@ -2491,14 +2488,22 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         let sourceId = null;
 
-        if ( typeof style.source != 'string' ) {
+        if ( typeof style.source !== 'string' ) {
           sourceId = style.id + '_source';
           this.addSource( sourceId, style.source );
         } else {
           sourceId = style.source;
         }
 
-        const layer = MGLLineStyleLayer.alloc().initWithIdentifierSource( style.id, theMap.style.sourceWithIdentifier( sourceId ));
+        console.log('init line layer');
+        console.log(style.id);
+        console.log(sourceId);
+        console.log(theMap.style.sourceWithIdentifier(sourceId));
+
+        const layer = MGLLineStyleLayer.alloc().initWithIdentifierSource(style.id, theMap.style.sourceWithIdentifier(sourceId));
+        if (style['source-layer']) {
+          layer.sourceLayerIdentifier = style['source-layer'];
+        }
 
         // color
 
@@ -2552,7 +2557,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         console.log( "Mapbox:addLineLayer(): after adding layer." );
 
-        let lineEntry = this.lines.find( ( entry ) => { return entry.id == sourceId; });
+        let lineEntry = this.lines.find( ( entry ) => { return entry.id === sourceId; });
 
         if ( lineEntry ) {
           lineEntry.layer = layer;
@@ -2713,11 +2718,11 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         const theMap: MGLMapView = nativeMapViewInstance || this._mapboxViewInstance;
 
-        if ( style.type != 'circle' ) {
+        if ( style.type !== 'circle' ) {
           reject( "Non circle style passed to addCircleLayer()" );
         }
 
-        if ( typeof style.source != 'undefined' ) {
+        if ( typeof style.source !== 'undefined' ) {
           reject( "Missing source." );
         }
 
@@ -2725,21 +2730,19 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         let sourceId = null;
 
-        if ( typeof style.source != 'string' ) {
-
+        if ( typeof style.source !== 'string' ) {
           sourceId = style.id + '_source';
-
           this.addSource( sourceId, style.source );
-
         } else {
-
           sourceId = style.source;
-
         }
 
         console.log( "Mapbox:addCircleLayer(): after adding source" );
 
         const layer = MGLCircleStyleLayer.alloc().initWithIdentifierSource( style.id, theMap.style.sourceWithIdentifier( sourceId ) );
+        if (style['source-layer']) {
+          layer.sourceLayerIdentifier = style['source-layer'];
+        }
 
         // color
 
@@ -3060,7 +3063,7 @@ const _downloadImage = marker => {
       return;
     }
     // ..or not to cache
-    http.getImage(marker.icon).then(
+    Http.getImage(marker.icon).then(
         (output) => {
           marker.iconDownloaded = output.ios;
           _markerIconDownloadCache[marker.icon] = marker.iconDownloaded;
@@ -3088,6 +3091,8 @@ const _downloadMarkerImages = (markers: Array<MapboxMarker>) => {
 };
 
 const _addMarkers = (markers: MapboxMarker[], nativeMap?) => {
+  let theMap: MGLMapView = nativeMap;
+
   if (!markers) {
     console.log("No markers passed");
     return;
@@ -3096,7 +3101,6 @@ const _addMarkers = (markers: MapboxMarker[], nativeMap?) => {
     console.log("markers must be passed as an Array: [{title: 'foo'}]");
     return;
   }
-  let theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
 
   _downloadMarkerImages(markers).then((updatedMarkers: Array<MapboxMarker>) => {
     updatedMarkers.forEach(marker => {
@@ -3153,7 +3157,7 @@ const _addMarkers = (markers: MapboxMarker[], nativeMap?) => {
 *
 * @link https://docs.nativescript.org/core-concepts/ios-runtime/how-to/ObjC-Subclassing#typescript-delegate-example
 */
-
+@NativeClass()
 class MGLMapViewDelegateImpl extends NSObject implements MGLMapViewDelegate {
   public static ObjCProtocols = [MGLMapViewDelegate];
 
@@ -3341,7 +3345,7 @@ class MGLMapViewDelegateImpl extends NSObject implements MGLMapViewDelegate {
       if (cachedMarker.icon) {
         if (cachedMarker.icon.startsWith("res://")) {
           let resourceName = cachedMarker.icon.substring("res://".length);
-          let imageSource = imgSrc.fromResource(resourceName);
+          let imageSource = ImageSource.fromResourceSync(resourceName);
           if (imageSource === null) {
             console.log(`Unable to locate ${resourceName}`);
           } else {
@@ -3357,10 +3361,10 @@ class MGLMapViewDelegateImpl extends NSObject implements MGLMapViewDelegate {
           console.log("Please use res://resourceName, http(s)://imageUrl or iconPath to use a local path");
         }
       } else if (cachedMarker.iconPath) {
-        let appPath = fs.knownFolders.currentApp().path;
+        let appPath = knownFolders.currentApp().path;
         let iconFullPath = appPath + "/" + cachedMarker.iconPath;
-        if (fs.File.exists(iconFullPath)) {
-          let image = imgSrc.fromFile(iconFullPath).ios;
+        if (File.exists(iconFullPath)) {
+          let image = ImageSource.fromFileSync(iconFullPath).ios;
           // perhaps add resize options for nice retina rendering (although you can now use the 'icon' param instead)
           cachedMarker.reuseIdentifier = cachedMarker.iconPath;
           return MGLAnnotationImage.annotationImageWithImageReuseIdentifier(image, cachedMarker.reuseIdentifier);
@@ -3464,6 +3468,7 @@ class MGLMapViewDelegateImpl extends NSObject implements MGLMapViewDelegate {
 
 // --------------------------------------------------------------------------------------
 
+@NativeClass()
 class MapTapHandlerImpl extends NSObject {
   private _owner: WeakRef<Mapbox>;
   private _listener: (data: LatLng) => void;
@@ -3492,6 +3497,7 @@ class MapTapHandlerImpl extends NSObject {
   };
 }
 
+@NativeClass()
 class MapLongPressHandlerImpl extends NSObject {
   private _owner: WeakRef<Mapbox>;
   private _listener: (data?: LatLng) => void;
@@ -3524,7 +3530,7 @@ class MapLongPressHandlerImpl extends NSObject {
 *
 * This is used by the OnScrollListener
 */
-
+@NativeClass()
 class MapPanHandlerImpl extends NSObject {
   private _owner: WeakRef<Mapbox>;
   private _listener: (data?: LatLng) => void;
@@ -3589,7 +3595,7 @@ class MapPanHandlerImpl extends NSObject {
 *
 * Current unused
 */
-
+@NativeClass()
 class MapSwipeHandlerImpl extends NSObject {
   private _owner: WeakRef<Mapbox>;
   private _listener: (data?: LatLng) => void;

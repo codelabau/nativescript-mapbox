@@ -210,15 +210,6 @@ export interface SetViewportOptions {
 
 // ------------------------------------------------------------
 
-export interface DeleteOfflineRegionOptions {
-  /**
-   * The name of the offline region to delete.
-   */
-  name: string;
-}
-
-// ------------------------------------------------------------
-
 export interface MapboxCluster {
   points: number;
   color: string;
@@ -318,11 +309,15 @@ export interface AddExtrusionOptions {
 // ------------------------------------------------------------
 
 export interface OfflineRegion {
+  id: string|number;
   name: string;
   bounds: Bounds;
   minZoom: number;
   maxZoom: number;
   style: MapStyle;
+  metadata?: any;
+  pixelRatio?: any;
+  type?: any;
 }
 
 // ------------------------------------------------------------
@@ -619,19 +614,9 @@ export interface MapboxApi {
 
   listOfflineRegions(options?: ListOfflineRegionsOptions): Promise<Array<OfflineRegion>>;
 
-  deleteOfflineRegion(options: DeleteOfflineRegionOptions): Promise<any>;
+  deleteOfflineRegion(id: number): Promise<any>;
 
   addGeoJsonClustered(options: AddGeoJsonClusteredOptions): Promise<any>;
-
-  // addSource(options: AddSourceOptions): Promise<any>;
-
-  removeSource(id: string, nativeMap?: any): Promise<any>;
-
-  addLayer(options: AddLayerOptions): Promise<any>;
-
-  removeLayer(id: string, nativeMap?: any): Promise<any>;
-
-  getLayer(id: string, nativeMap?: any): Promise<any>;
 
   // addExtrusion(options: AddExtrusionOptions): Promise<any>;
 
