@@ -45,6 +45,9 @@ export interface AddPolygonOptions {
    */
   id?: any;
   points: LatLng[];
+  above: string;
+  below: string;
+
   fillColor?: string | Color;
   /**
    * Transparency / alpha, ranging from 0 to 1.
@@ -105,6 +108,9 @@ export interface AddPolylineOptions {
    */
   opacity?: number;
   points: LatLng[];
+
+  above: string;
+  below: string;
 }
 
 // ------------------------------------------------------------
@@ -234,36 +240,40 @@ export interface AddGeoJsonClusteredOptions {
 export interface AddLayerOptions {
   id: string;
   source: string;
-  sourceLayer: string;
+  'source-layer': string;
   type: string;
+  above: string;
+  below: string;
+  paint: {
+    /**
+     * 'circle' paint properties
+     */
+    'circle-color'?: string | Color;
+    'circle-opacity'?: number;
+    'circle-radius'?: number;
+    'circle-stroke-color'?: string | Color;
+    'circle-stroke-width'?: number;
 
-  /**
-   * 'circle' paint properties
-   */
-  circleColor?: string | Color;
-  circleOpacity?: number;
-  circleRadius?: number;
-  circleStrokeColor?: string | Color;
-  circleStrokeWidth?: number;
+    /**
+     * 'fill' paint properties
+     */
+    'fill-color'?: string | Color;
+    'fill-opacity'?: number;
 
-  /**
-   * 'fill' paint properties
-   */
-  fillColor?: string | Color;
-  fillOpacity?: number;
-
-  /**
-   * 'line' layout properties
-   */
-  lineCap?: string;
-  lineJoin?: string;
-
-  /**
-   * 'line' paint properties
-   */
-  lineColor?: string | Color;
-  lineOpacity?: number;
-  lineWidth?: number;
+    /**
+     * 'line' paint properties
+     */
+    'line-color'?: string | Color;
+    'line-opacity'?: number;
+    'line-width'?: number;
+  };
+  layout: {
+    /**
+     * 'line' layout properties
+     */
+    'line-cap'?: string;
+    'line-join'?: string;
+  };
 }
 
 export type UserTrackingMode = "NONE" | "FOLLOW" | "FOLLOW_WITH_HEADING" | "FOLLOW_WITH_COURSE";

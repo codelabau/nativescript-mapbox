@@ -1526,8 +1526,14 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
         .initWithIdentifierSource(polygonID, source);
       layer.fillColor = NSExpression.expressionForConstantValue(!options.fillColor ? UIColor.blackColor : (options.fillColor instanceof Color ? options.fillColor.ios : new Color(options.fillColor).ios));
       layer.fillOpacity = NSExpression.expressionForConstantValue(options.fillOpacity === undefined ? 1 : options.fillOpacity);
-      theMap.style.addLayer(layer);
 
+      if (options.above && theMap.style.layerWithIdentifier(options.above)) {
+        theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(options.above));
+      } else if (options.below && theMap.style.layerWithIdentifier(options.below)) {
+        theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(options.below));
+      } else {
+        theMap.style.addLayer(layer);
+      }
 
       resolve();
     });
@@ -1570,7 +1576,14 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
       layer.lineWidth = NSExpression.expressionForConstantValue(options.width || 5);
       layer.lineOpacity = NSExpression.expressionForConstantValue(options.opacity === undefined ? 1 : options.opacity);
 
-      theMap.style.addLayer(layer);
+      if (options.above && theMap.style.layerWithIdentifier(options.above)) {
+        theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(options.above));
+      } else if (options.below && theMap.style.layerWithIdentifier(options.below)) {
+        theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(options.below));
+      } else {
+        theMap.style.addLayer(layer);
+      }
+
       resolve();
     });
   }
@@ -2087,9 +2100,8 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
             break;
 
           case "vector":
-            console.log('adding vector source')
             source = MGLVectorTileSource.alloc().initWithIdentifierConfigurationURL(id, NSURL.URLWithString(url));
-          break;
+            break;
 
           case 'geojson':
             // under iOS we handle lines and circles differently
@@ -2192,9 +2204,9 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
                 center: options.data.geometry.coordinates
               });
 
-           }
+            }
 
-          break;
+            break;
 
           default:
             reject("Invalid source type: " + type);
@@ -2286,7 +2298,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   * @link https://docs.mapbox.com/mapbox-gl-js/style-spec/#layers
   */
 
-  public addLayer( style, nativeMapView? ): Promise<any> {
+  public addLayer(style: AddLayerOptions, nativeMapView? ): Promise<any> {
 
     let retval;
 
@@ -2484,6 +2496,10 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           reject( "Non line style passed to addLineLayer()" );
         }
 
+        if (!style.source) {
+          reject( "Missing source." );
+        }
+
         // the source may be of type geojson or it may be the id of a source added by addSource().
 
         let sourceId = null;
@@ -2495,15 +2511,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           sourceId = style.source;
         }
 
-        console.log('init line layer');
-        console.log(style.id);
-        console.log(sourceId);
-        console.log(theMap.style.sourceWithIdentifier(sourceId));
-
         const layer = MGLLineStyleLayer.alloc().initWithIdentifierSource(style.id, theMap.style.sourceWithIdentifier(sourceId));
         if (style['source-layer']) {
           layer.sourceLayerIdentifier = style['source-layer'];
         }
+
+        console.log( "Mapbox:addLineLayer(): after adding source" );
 
         // color
 
@@ -2553,7 +2566,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         }
 
-        theMap.style.addLayer(layer);
+        if (style.above && theMap.style.layerWithIdentifier(style.above)) {
+          theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(style.above));
+        } else if (style.below && theMap.style.layerWithIdentifier(style.below)) {
+          theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(style.below));
+        } else {
+          theMap.style.addLayer(layer);
+        }
 
         console.log( "Mapbox:addLineLayer(): after adding layer." );
 
@@ -2722,7 +2741,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           reject( "Non circle style passed to addCircleLayer()" );
         }
 
-        if ( typeof style.source !== 'undefined' ) {
+        if (!style.source) {
           reject( "Missing source." );
         }
 
@@ -2737,12 +2756,12 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           sourceId = style.source;
         }
 
-        console.log( "Mapbox:addCircleLayer(): after adding source" );
-
         const layer = MGLCircleStyleLayer.alloc().initWithIdentifierSource( style.id, theMap.style.sourceWithIdentifier( sourceId ) );
         if (style['source-layer']) {
           layer.sourceLayerIdentifier = style['source-layer'];
         }
+
+        console.log( "Mapbox:addCircleLayer(): after adding source" );
 
         // color
 
@@ -2838,7 +2857,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         }
 
-        theMap.style.addLayer(layer);
+        if (style.above && theMap.style.layerWithIdentifier(style.above)) {
+          theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(style.above));
+        } else if (style.below && theMap.style.layerWithIdentifier(style.below)) {
+          theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(style.below));
+        } else {
+          theMap.style.addLayer(layer);
+        }
 
         let circleEntry = this.circles.find( ( entry ) => { return entry.id == sourceId; });
 
@@ -2870,7 +2895,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           reject( "Non circle style passed to addRasterLayer()" );
         }
 
-        if ( typeof style.source != 'undefined' ) {
+        if (!style.source) {
           reject( "Missing source." );
         }
 
@@ -2890,7 +2915,13 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
         console.log( "Mapbox:addRasterLayer(): after opacity" );
 
-        theMap.style.addLayer(layer);
+        if (style.above && theMap.style.layerWithIdentifier(style.above)) {
+          theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(style.above));
+        } else if (style.below && theMap.style.layerWithIdentifier(style.below)) {
+          theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(style.below));
+        } else {
+          theMap.style.addLayer(layer);
+        }
 
         resolve();
 

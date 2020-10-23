@@ -3200,7 +3200,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   * @link https://docs.mapbox.com/mapbox-gl-js/style-spec/#layers
   */
 
-  public addLayer( style, nativeMapView? ): Promise<any> {
+  public addLayer( style: AddLayerOptions, nativeMapView? ): Promise<any> {
 
     let retval;
 
