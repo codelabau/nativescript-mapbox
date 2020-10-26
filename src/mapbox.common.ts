@@ -39,38 +39,6 @@ export interface Feature {
 
 // ------------------------------------------------------------
 
-export interface AddPolygonOptions {
-  /**
-   * Set this in case you want to later pass it to 'removePolygons'. TODO doesn't exist yet ;)
-   */
-  id?: any;
-  points: LatLng[];
-  above: string;
-  below: string;
-
-  fillColor?: string | Color;
-  /**
-   * Transparency / alpha, ranging from 0 to 1.
-   * Default fully opaque (1).
-   */
-  fillOpacity?: number;
-
-  /**
-   * The line around the polygon. Barely visible on Android.
-   */
-  strokeColor?: string | Color;
-  /**
-   * iOS only.
-   */
-  strokeWidth?: number;
-  /**
-   * iOS only.
-   */
-  strokeOpacity?: number;
-}
-
-// ------------------------------------------------------------
-
 export interface UserLocation {
   location: LatLng;
   speed: number;
@@ -85,32 +53,6 @@ export interface SetCenterOptions extends LatLng {
   bearing?: number;
   tilt?: number;
   zoom?: number;
-}
-
-// ------------------------------------------------------------
-
-export interface AddPolylineOptions {
-  /**
-   * Set this in case you want to later pass it to 'removePolylines'.
-   */
-  id?: any;
-  /**
-   * Width of the line, default 5.
-   */
-  width?: number;
-  /**
-   * Color of the line, default black.
-   */
-  color?: string | Color;
-  /**
-   * Transparency / alpha, ranging from 0 to 1.
-   * Default fully opaque (1).
-   */
-  opacity?: number;
-  points: LatLng[];
-
-  above: string;
-  below: string;
 }
 
 // ------------------------------------------------------------
@@ -308,12 +250,6 @@ export interface TrackUserOptions {
    * iOS only, as Android is always animated. Default true (because of Android).
    */
   animated?: boolean;
-}
-
-// ------------------------------------------------------------
-
-export interface AddExtrusionOptions {
-
 }
 
 // ------------------------------------------------------------
@@ -572,27 +508,19 @@ export interface MapboxApi {
 
   trackUser(options: TrackUserOptions, nativeMap?: any): Promise<void>;
 
-  addSource( id: string, options: AddSourceOptions, nativeMapView?: any ): Promise<any>;
+  addSource(id: string, options: AddSourceOptions, nativeMapView?: any): Promise<any>;
 
   removeSource(id: string, nativeMap?: any): Promise<any>;
 
-  addLayer( style, nativeMapView?: any ): Promise<any>;
+  getSource(id: string, nativeMap?: any): Promise<any>;
+
+  addLayer(style: AddLayerOptions, nativeMapView?: any): Promise<any>;
 
   removeLayer(id: string, nativeMapView?: any): Promise<any>;
 
-  getLayer( id: string, nativeMapView?: any ): Promise<any>;
-
-  addLinePoint( id: string, point, nativeMapView?: any ): Promise<any>;
+  getLayer(id: string, nativeMap?: any): Promise<any>;
 
   queryRenderedFeatures(options: QueryRenderedFeaturesOptions, nativeMap?: any): Promise<Array<Feature>>;
-
-  addPolygon(options: AddPolygonOptions, nativeMap?: any): Promise<any>;
-
-  removePolygons(ids?: Array<any>, nativeMap?: any): Promise<any>;
-
-  addPolyline(options: AddPolylineOptions, nativeMap?: any): Promise<any>;
-
-  removePolylines(ids?: Array<any>, nativeMap?: any): Promise<any>;
 
   animateCamera(options: AnimateCameraOptions, nativeMap?: any): Promise<any>;
 
@@ -628,8 +556,9 @@ export interface MapboxApi {
 
   addGeoJsonClustered(options: AddGeoJsonClusteredOptions): Promise<any>;
 
-  // addExtrusion(options: AddExtrusionOptions): Promise<any>;
+  setFilter(layerId: string, filter: Array<any>|null|undefined, nativeMap?: any): Promise<any>;
 
+  getFilter(layerId: string, nativeMap?: any): Promise<any>;
 }
 
 // ------------------------------------------------------------
@@ -758,25 +687,21 @@ export interface MapboxViewApi {
 
   removeSource(id: string, nativeMap?: any): Promise<any>;
 
-  addLayer( style ): Promise<any>;
+  getSource( id: string ): Promise<any>;
+
+  addLayer( style: AddLayerOptions ): Promise<any>;
 
   removeLayer(id: string): Promise<any>;
 
-  getLayer( id: string ): Promise<any>;
-
-  addLinePoint( id: string, point ): Promise<any>;
+  getLayer(id: string): Promise<any>;
 
   queryRenderedFeatures(options: QueryRenderedFeaturesOptions): Promise<Array<Feature>>;
 
-  addPolygon(options: AddPolygonOptions): Promise<any>;
-
-  removePolygons(ids?: Array<any>): Promise<any>;
-
-  addPolyline(options: AddPolylineOptions): Promise<any>;
-
-  removePolylines(ids?: Array<any>): Promise<any>;
-
   animateCamera(options: AnimateCameraOptions): Promise<any>;
+
+  setFilter(layerId: string, filter: Array<any>|null|undefined): Promise<any>;
+
+  getFilter(layerId: string): Promise<any>;
 
   destroy(): Promise<any>;
 
@@ -991,17 +916,21 @@ export abstract class MapboxViewCommonBase extends ContentView implements Mapbox
   // -----------------------------------------------------------------
 
   addSource( id: string, options: AddSourceOptions ): Promise<any> {
-    return this.mapbox.addSource( id, options, this.getNativeMapView() );
+    return this.mapbox.addSource( id, options, this.getNativeMapView());
   }
 
   removeSource(id: string ): Promise<any> {
-    return this.mapbox.removeSource(id, this.getNativeMapView() );
+    return this.mapbox.removeSource(id, this.getNativeMapView());
+  }
+
+  getSource(id: string ): Promise<any> {
+    return this.mapbox.getSource(id, this.getNativeMapView());
   }
 
   // -----------------------------------------------------------------
 
-  addLayer( style ): Promise<any> {
-    return this.mapbox.addLayer( style, this.getNativeMapView());
+  addLayer(style: AddLayerOptions): Promise<any> {
+    return this.mapbox.addLayer(style, this.getNativeMapView());
   }
 
   // -----------------------------------------------------------------
@@ -1018,44 +947,22 @@ export abstract class MapboxViewCommonBase extends ContentView implements Mapbox
 
   // -----------------------------------------------------------------
 
-  addLinePoint( id: string, point ): Promise<any> {
-    return this.mapbox.addLinePoint( id, point, this.getNativeMapView());
-  }
-
-  // -----------------------------------------------------------------
-
   queryRenderedFeatures(options: QueryRenderedFeaturesOptions): Promise<Array<Feature>> {
     return this.mapbox.queryRenderedFeatures(options, this.getNativeMapView());
   }
 
   // -----------------------------------------------------------------
 
-  addPolygon(options: AddPolygonOptions): Promise<any> {
-    return this.mapbox.addPolygon(options, this.getNativeMapView());
-  }
-
-  // -----------------------------------------------------------------
-
-  removePolygons(ids?: Array<any>): Promise<any> {
-    return this.mapbox.removePolygons(ids, this.getNativeMapView());
-  }
-
-  // -----------------------------------------------------------------
-
-  addPolyline(options: AddPolylineOptions): Promise<any> {
-    return this.mapbox.addPolyline(options, this.getNativeMapView());
-  }
-
-  // -----------------------------------------------------------------
-
-  removePolylines(ids?: Array<any>): Promise<any> {
-    return this.mapbox.removePolylines(ids, this.getNativeMapView());
-  }
-
-  // -----------------------------------------------------------------
-
   animateCamera(options: AnimateCameraOptions): Promise<any> {
     return this.mapbox.animateCamera(options, this.getNativeMapView());
+  }
+
+  setFilter(layerId: string, filter: Array<any>|null|undefined): Promise<any> {
+    return this.mapbox.setFilter(layerId, filter, this.getNativeMapView());
+  }
+
+  getFilter(layerId: string): Promise<any> {
+    return this.mapbox.getFilter(layerId, this.getNativeMapView());
   }
 
   // -----------------------------------------------------------------

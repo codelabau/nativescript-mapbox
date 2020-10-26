@@ -10,11 +10,8 @@ import {
 } from '@nativescript/core/utils';
 
 import {
-  AddExtrusionOptions,
   AddGeoJsonClusteredOptions,
   AddLayerOptions,
-  AddPolygonOptions,
-  AddPolylineOptions,
   AddSourceOptions,
   AnimateCameraOptions,
   DownloadOfflineRegionOptions,
@@ -1468,160 +1465,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     });
   }
 
-  addPolygon(options: AddPolygonOptions, nativeMap?): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const theMap = nativeMap || this._mapboxViewInstance;
-      const points = options.points;
-
-      if (points === undefined) {
-        reject("Please set the 'points' parameter");
-        return;
-      }
-
-      const coordinateArray = [];
-      points.forEach(point => coordinateArray.push([point.lng, point.lat]));
-
-      const polygonID = `polygon_${
-        options.id || new Date().getTime()}`;
-
-      if (theMap.style.sourceWithIdentifier(polygonID)) {
-        reject("Remove the polygon with this id first with 'removePolygons': " + polygonID);
-        return;
-      }
-
-      const geoJSON = `{
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "id": ${JSON.stringify(polygonID)},
-            "type": "Feature",
-            "properties": {
-            },
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [${JSON.stringify(coordinateArray)}]
-            }
-          }
-        ]
-      }`;
-      const geoDataStr = NSString.stringWithString(geoJSON);
-      const geoData = geoDataStr.dataUsingEncoding(NSUTF8StringEncoding);
-      const geoDataBase64Enc = geoData.base64EncodedStringWithOptions(0);
-      const geo = NSData.alloc().initWithBase64EncodedStringOptions(geoDataBase64Enc, null);
-      const shape = MGLShape.shapeWithDataEncodingError(geo, NSUTF8StringEncoding);
-      const source = MGLShapeSource.alloc().initWithIdentifierShapeOptions(polygonID, shape, null);
-
-      theMap.style.addSource(source);
-
-      if (options.strokeColor || options.strokeWidth || options.strokeOpacity) {
-        const strokeLayer = MGLLineStyleLayer.alloc().initWithIdentifierSource(polygonID + "_stroke", source);
-        strokeLayer.lineColor = NSExpression.expressionForConstantValue(!options.strokeColor ? UIColor.blackColor : (options.strokeColor instanceof Color ? options.strokeColor.ios : new Color(options.strokeColor).ios));
-        strokeLayer.lineWidth = NSExpression.expressionForConstantValue(options.strokeWidth || 5);
-        strokeLayer.lineOpacity = NSExpression.expressionForConstantValue(options.strokeOpacity === undefined ? 1 : options.strokeOpacity);
-        theMap.style.addLayer(strokeLayer);
-      }
-
-      const layer = MGLFillStyleLayer
-        .alloc()
-        .initWithIdentifierSource(polygonID, source);
-      layer.fillColor = NSExpression.expressionForConstantValue(!options.fillColor ? UIColor.blackColor : (options.fillColor instanceof Color ? options.fillColor.ios : new Color(options.fillColor).ios));
-      layer.fillOpacity = NSExpression.expressionForConstantValue(options.fillOpacity === undefined ? 1 : options.fillOpacity);
-
-      if (options.above && theMap.style.layerWithIdentifier(options.above)) {
-        theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(options.above));
-      } else if (options.below && theMap.style.layerWithIdentifier(options.below)) {
-        theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(options.below));
-      } else {
-        theMap.style.addLayer(layer);
-      }
-
-      resolve();
-    });
-  }
-
-  // --------------------------------------------------------------------
-
-  addPolyline(options: AddPolylineOptions, nativeMap?): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
-      const points = options.points;
-      if (points === undefined) {
-        reject("Please set the 'points' parameter");
-        return;
-      }
-
-      const coordinateArray = [];
-      points.forEach(point => coordinateArray.push([point.lng, point.lat]));
-
-      const polylineID = "polyline_" + (options.id || new Date().getTime());
-
-      // this would otherwise crash the app
-      if (theMap.style.sourceWithIdentifier(polylineID)) {
-        reject("Remove the polyline with this id first with 'removePolylines': " + polylineID);
-        return;
-      }
-
-      const geoJSON = `{"type": "FeatureCollection", "features": [{"type": "Feature","properties": {},"geometry": {"type": "LineString", "coordinates": ${JSON.stringify(coordinateArray)}}}]}`;
-      const geoDataStr = NSString.stringWithString(geoJSON);
-      const geoData = geoDataStr.dataUsingEncoding(NSUTF8StringEncoding);
-      const geoDataBase64Enc = geoData.base64EncodedStringWithOptions(0);
-
-      const geo = NSData.alloc().initWithBase64EncodedStringOptions(geoDataBase64Enc, null);
-      const shape = MGLShape.shapeWithDataEncodingError(geo, NSUTF8StringEncoding);
-      const source = MGLShapeSource.alloc().initWithIdentifierShapeOptions(polylineID, shape, null);
-      theMap.style.addSource(source);
-
-      const layer = MGLLineStyleLayer.alloc().initWithIdentifierSource(polylineID, source);
-      layer.lineColor = NSExpression.expressionForConstantValue(!options.color ? UIColor.blackColor : (options.color instanceof Color ? options.color.ios : new Color(options.color).ios));
-      layer.lineWidth = NSExpression.expressionForConstantValue(options.width || 5);
-      layer.lineOpacity = NSExpression.expressionForConstantValue(options.opacity === undefined ? 1 : options.opacity);
-
-      if (options.above && theMap.style.layerWithIdentifier(options.above)) {
-        theMap.style.insertLayerAboveLayer(layer, theMap.style.layerWithIdentifier(options.above));
-      } else if (options.below && theMap.style.layerWithIdentifier(options.below)) {
-        theMap.style.insertLayerBelowLayer(layer, theMap.style.layerWithIdentifier(options.below));
-      } else {
-        theMap.style.addLayer(layer);
-      }
-
-      resolve();
-    });
-  }
-
-  // --------------------------------------------------------------------
-
-  private removePolyById(theMap, id: string): void {
-    let layer = theMap.style.layerWithIdentifier(id);
-    if (layer !== null) {
-      theMap.style.removeLayer(layer);
-    }
-    // polygons may have a 'stroke' layer
-    layer = theMap.style.layerWithIdentifier(id + "_stroke");
-    if (layer !== null) {
-      theMap.style.removeLayer(layer);
-    }
-    const source = theMap.style.sourceWithIdentifier(id);
-    if (source !== null) {
-      theMap.style.removeSource(source);
-    }
-  }
-
-  private removePolys(polyType: string, ids?: Array<any>, nativeMap?: any): Promise<any> {
-    return new Promise((resolve) => {
-      let theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
-      ids.forEach(id => this.removePolyById(theMap, polyType + id));
-      resolve();
-    });
-  }
-
-  removePolygons(ids?: Array<any>, nativeMap?: any): Promise<any> {
-    return this.removePolys("polygon_", ids, nativeMap);
-  }
-
-  removePolylines(ids?: Array<any>, nativeMap?: any): Promise<any> {
-    return this.removePolys("polyline_", ids, nativeMap);
-  }
-
   animateCamera(options: AnimateCameraOptions, nativeMap?): Promise<any> {
     return new Promise((resolve, reject) => {
       try {
@@ -2046,24 +1889,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     });
   }
 
-  addExtrusion(options: AddExtrusionOptions, nativeMap?): Promise<any> {
-    return new Promise((resolve, reject) => {
-      try {
-        let theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
-
-        if (!theMap) {
-          reject("No map has been loaded");
-          return;
-        }
-
-        resolve();
-      } catch (ex) {
-        console.log("Error in mapbox.deleteOfflineRegion: " + ex);
-        reject(ex);
-      }
-    });
-  }
-
   // -------------------------------------------------------------------------------------
 
   /**
@@ -2277,6 +2102,34 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     });
   }
 
+  /**
+  * get source by ID
+  *
+  * Gets a source given a source id
+  *
+  * @param {string} id
+  */
+  public getSource(id: string, nativeMapViewInstance) {
+    return new Promise((resolve, reject) => {
+      try {
+        const theMap: MGLMapView = nativeMapViewInstance || this._mapboxViewInstance;
+        console.log("Mapbox::getSource(): attempting to get source '" + id + "'");
+        const source = theMap.style.sourceWithIdentifier(id);
+        console.log("Mapbox:getSource(): got source object: ", source);
+
+        if (!source) {
+          throw new Error("Source '" + id + "' not found when attempting to get it.");
+        }
+
+        console.log("Mapbox:getSource(): after getting source " + id);
+        resolve(source);
+      } catch (ex) {
+        console.log("Mapbox:getSource() Error : " + ex);
+        reject(ex);
+      }
+    });
+  }
+
   // -------------------------------------------------------------------------------------
 
   /**
@@ -2397,7 +2250,7 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
           throw new Error( "Layer '" + id + "' not found when attempting to get it." );
         }
 
-        console.log( "Mapbox:getLayer(): after removing layer " + id );
+        console.log( "Mapbox:getLayer(): after getting layer " + id );
 
         resolve(layer);
 
@@ -2476,7 +2329,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
   *
   * @return {Promise<any>}
   *
-  * @see addLineAnnotation()
   * @see onMapEvent()
   *
   * @link https://docs.mapbox.com/mapbox-gl-js/style-spec/#layers
@@ -2594,89 +2446,6 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
     }); // end of Promise()
 
   } // end of addLineLayer
-
-  // -------------------------------------------------------------------------------------
-
-  /**
-  * Add a point to a line
-  *
-  * This method appends a point to a line and is useful for drawing a users track.
-  *
-  * The process for adding a point to a line is different in the iOS sdk than in
-  * the Android java sdk.
-  *
-  * @param {id} id - id of line to add a point to.
-  * @param {array} lnglat - [lng,lat] to append to the line.
-  *
-  * @link https://github.com/mapbox/mapbox-gl-native/issues/13983
-  * @link https://docs.mapbox.com/ios/maps/examples/runtime-animate-line/
-  *
-  * @todo this does not update the invisible clickable overlay.
-  */
-
-  public addLinePoint( id: string, lnglat, nativeMapView? ): Promise<any> {
-
-    return new Promise((resolve, reject) => {
-      try {
-
-        // The original thought was to query the source to get the points that make up the line
-        // and then add a point to it. Unfortunately, it seems that the points in the source
-        // are modified and do not match the original set of points that make up the map. I kept
-        // adding a LineString and after querying it it would be returned as a MultiLineString
-        // with more points.
-        //
-        // As a result of this, we keep the original feature in the lines list and use that
-        // as the data source for the line. As each point is added, we append it to the
-        // feature and reset the json source for the displayed line.
-
-        let lineEntry = this.lines.find( ( entry ) => { return entry.id == id; });
-
-        if ( ! lineEntry ) {
-
-          reject( "No such line layer '" + id + "'" );
-          return;
-        }
-
-        // we carry a pointer to the raw buffer of CLLocationCoordinate2D structures.
-        // since we are managing the buffer ourselves we need to allocate space for
-        // the new location entry.
-        //
-        // I originally tried realloc here but as soon as I try to add an entry an exception is thrown
-        // indicating it's a read only property; hence the alloc, copy, and free here.
-
-        let bytes = lineEntry.numCoords * 2 * interop.sizeof(interop.types.double);
-
-        let buffer = malloc( bytes + ( 2 * interop.sizeof(interop.types.double) ) );
-        let newCoordsArray = new interop.Reference( CLLocationCoordinate2D, buffer );
-
-        for ( let i = 0; i < lineEntry.numCoords; i++ ) {
-          newCoordsArray[ i ] = lineEntry.clCoordsArray[ i ];
-        }
-
-        lineEntry.numCoords++;
-
-        newCoordsArray[ lineEntry.numCoords - 1 ] = CLLocationCoordinate2DMake( lnglat[1], lnglat[0] );
-
-        free( lineEntry.clCoordsArray );
-
-        let polyline = MGLPolylineFeature.polylineWithCoordinatesCount( new interop.Reference( CLLocationCoordinate2D, newCoordsArray ), lineEntry.numCoords );
-
-        lineEntry.clCoordsArray = newCoordsArray;
-
-        // now update the source
-
-        lineEntry.source.shape = polyline;
-
-        resolve();
-      } catch (ex) {
-
-        console.log( "Mapbox:addLinePoint() Error : " + ex);
-        reject(ex);
-
-      }
-    });
-
-  } // end of addLinePoint()
 
   // -------------------------------------------------------------------------------------
 
@@ -2938,6 +2707,45 @@ export class Mapbox extends MapboxCommon implements MapboxApi {
 
   addGeoJsonClustered(options: AddGeoJsonClusteredOptions, nativeMap?): Promise<any> {
     throw new Error('Method not implemented.');
+  }
+
+  // ----------------------------------------
+
+  setFilter(layerId: string, filter: Array<any>|null|undefined, nativeMap?): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+        const theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
+        const layer = theMap.style.layerWithIdentifier(layerId);
+        if (!layer ) {
+          throw new Error(`The layer '${layerId}' does not exist in the map's style and cannot be filtered.`);
+        }
+
+        // @ts-ignore
+        layer.predicate = filter ? NSPredicate.predicateWithMGLJSONObject(filter) : null;
+
+        resolve(theMap);
+      } catch (ex) {
+        console.log( "Mapbox:setFilter() Error : " + ex );
+        reject(ex);
+      }
+    });
+  }
+
+  getFilter(layerId: string, nativeMap?): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+        const theMap: MGLMapView = nativeMap || this._mapboxViewInstance;
+        const layer = theMap.style.layerWithIdentifier(layerId);
+        if (!layer ) {
+          throw new Error(`The layer '${layerId}' does not exist in the map's style.`);
+        }
+        // @ts-ignore
+        resolve(layer.predicate);
+      } catch (ex) {
+        console.log( "Mapbox:getFilter() Error : " + ex );
+        reject(ex);
+      }
+    });
   }
 
 /**
@@ -3482,8 +3290,6 @@ class MGLMapViewDelegateImpl extends NSObject implements MGLMapViewDelegate {
 
   mapViewViewForAnnotation( mapView: MGLMapView, annotation: MGLAnnotation): MGLAnnotationView {
 
-    console.log( "MGLMapViewDelegateImpl::mapViewViewForAnnotation() top" );
-
     if ( annotation.isKindOfClass( MGLUserLocation.class() ) ) {
 
       this.userLocationAnnotationView = <CustomUserLocationAnnotationView>CustomUserLocationAnnotationView.alloc().init();
@@ -3587,27 +3393,18 @@ class MapPanHandlerImpl extends NSObject {
     const panPoint = recognizer.locationInView(this._mapView);
     const panCoordinate = this._mapView.convertPointToCoordinateFromView(panPoint, this._mapView);
 
-    console.log( "MapPanHandlerImpl::pan(): top with state:", recognizer.state );
-
     // if this is the beginning of the pan simulate the Android onMoveBegin
     //
     // See the objc platform declarations in objc!UIKit.d.ts. It doesn't quite match the apple documention
 
     if ( this.onMoveBegin ) {
-
-      if ( recognizer.state == UIGestureRecognizerState.Began ) {
-
-        console.log( "MapPanHandlerImpl::pan(): calling onMoveBegin listener" );
-
+      if ( recognizer.state === UIGestureRecognizerState.Began ) {
         this._listener({
           lat: panCoordinate.latitude,
           lng: panCoordinate.longitude
         });
-
       }
-
       return;
-
     }
 
     this._listener({

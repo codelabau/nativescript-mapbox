@@ -25,7 +25,7 @@ dependencies {
 
     // Mapbox SDK
     // https://docs.mapbox.com/android/maps/overview/
-    implementation ("com.mapbox.mapboxsdk:mapbox-android-sdk:9.4.0") {
+    implementation ("com.mapbox.mapboxsdk:mapbox-android-sdk:9.5.0") {
         transitive = false
     }
 
